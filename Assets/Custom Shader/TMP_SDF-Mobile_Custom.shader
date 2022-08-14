@@ -9,15 +9,25 @@ Properties {
 	[HDR]_FaceColor     ("Face Color", Color) = (1,1,1,1)
 	_FaceDilate			("Face Dilate", Range(-1,1)) = 0
 
+	[HDR]_Face2Color    ("Face2 Color", Color) = (1,1,1,1)
+	_Face2Dilate		("Face2 Dilate", Range(-1,1)) = 0
+	_Face2OffsetX 	("Face2 OffsetX", Range(-1,1)) = 0
+	_Face2OffsetY 	("Face2 OffsetY", Range(-1,1)) = 0
+
 	[HDR]_OutlineColor	("Outline Color", Color) = (0,0,0,1)
 	_OutlineWidth		("Outline Thickness", Range(0,1)) = 0
 	_OutlineSoftness	("Outline Softness", Range(0,1)) = 0
+
+	[HDR]_Outline2Color	("Outline2 Color", Color) = (0,0,0,1)
+	_Outline2Width		("Outline2 Thickness", Range(0,1)) = 0
+	_Outline2Softness	("Outline2 Softness", Range(0,1)) = 0
 
 	[HDR]_UnderlayColor	("Border Color", Color) = (0,0,0,.5)
 	_UnderlayOffsetX 	("Border OffsetX", Range(-1,1)) = 0
 	_UnderlayOffsetY 	("Border OffsetY", Range(-1,1)) = 0
 	_UnderlayDilate		("Border Dilate", Range(-1,1)) = 0
 	_UnderlaySoftness 	("Border Softness", Range(0,1)) = 0
+
 
 	_WeightNormal		("Weight Normal", float) = 0
 	_WeightBold			("Weight Bold", float) = .5
@@ -83,8 +93,6 @@ SubShader {
 		CGPROGRAM
 		#pragma vertex VertShader
 		#pragma fragment PixShader
-		#pragma shader_feature __ OUTLINE_ON
-		#pragma shader_feature __ UNDERLAY_ON UNDERLAY_INNER
 
 		#pragma multi_compile __ UNITY_UI_CLIP_RECT
 		#pragma multi_compile __ UNITY_UI_ALPHACLIP
@@ -111,10 +119,8 @@ SubShader {
 			float4	texcoord0		: TEXCOORD0;			// Texture UV, Mask UV
 			half4	param			: TEXCOORD1;			// Scale(x), BiasIn(y), BiasOut(z), Bias(w)
 			half4	mask			: TEXCOORD2;			// Position in clip space(xy), Softness(zw)
-			#if (UNDERLAY_ON | UNDERLAY_INNER)
 			float4	texcoord1		: TEXCOORD3;			// Texture UV, alpha, reserved
 			half2	underlayParam	: TEXCOORD4;			// Scale(x), Bias(y)
-			#endif
 		};
 
 
@@ -151,9 +157,7 @@ SubShader {
 			float outline = _OutlineWidth * _ScaleRatioA * 0.5 * scale;
 
 			float opacity = input.color.a;
-			#if (UNDERLAY_ON | UNDERLAY_INNER)
 			opacity = 1.0;
-			#endif
 
 			fixed4 faceColor = fixed4(input.color.rgb, opacity) * _FaceColor;
 			faceColor.rgb *= faceColor.a;
@@ -163,14 +167,12 @@ SubShader {
 			outlineColor.rgb *= outlineColor.a;
 			outlineColor = lerp(faceColor, outlineColor, sqrt(min(1.0, (outline * 2))));
 
-			#if (UNDERLAY_ON | UNDERLAY_INNER)
 			layerScale /= 1 + ((_UnderlaySoftness * _ScaleRatioC) * layerScale);
 			float layerBias = (.5 - weight) * layerScale - .5 - ((_UnderlayDilate * _ScaleRatioC) * .5 * layerScale);
 
 			float x = -(_UnderlayOffsetX * _ScaleRatioC) * _GradientScale / _TextureWidth;
 			float y = -(_UnderlayOffsetY * _ScaleRatioC) * _GradientScale / _TextureHeight;
 			float2 layerOffset = float2(x, y);
-			#endif
 
 			// Generate UV for the Masking Texture
 			float4 clampedRect = clamp(_ClipRect, -2e10, 2e10);
@@ -183,15 +185,76 @@ SubShader {
 			output.texcoord0 = float4(input.texcoord0.x, input.texcoord0.y, maskUV.x, maskUV.y);
 			output.param = half4(scale, bias - outline, bias + outline, bias);
 			output.mask = half4(vert.xy * 2 - clampedRect.xy - clampedRect.zw, 0.25 / (0.25 * half2(_MaskSoftnessX, _MaskSoftnessY) + pixelSize.xy));
-			#if (UNDERLAY_ON || UNDERLAY_INNER)
+
 			output.texcoord1 = float4(input.texcoord0 + layerOffset, input.color.a, 0);
 			output.underlayParam = half2(layerScale, layerBias);
-			#endif
 
+			//return output;
+
+			pixel_t output2;
+
+			UNITY_INITIALIZE_OUTPUT(pixel_t, output2);
+			UNITY_SETUP_INSTANCE_ID(input);
+			UNITY_TRANSFER_INSTANCE_ID(input, output2);
+			UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output2);
+
+			float bold2 = step(input.texcoord1.y, 0);
+
+			float4 vert2 = input.vertex;
+			vert2.x += (_VertexOffsetX + _Face2OffsetX);
+			vert2.y += (_VertexOffsetY + _Face2OffsetY);
+			float4 vPosition2 = UnityObjectToClipPos(vert2);
+
+			float2 pixelSize2 = vPosition2.w;
+			pixelSize2 /= float2(_ScaleX, _ScaleY) * abs(mul((float2x2)UNITY_MATRIX_P, _ScreenParams.xy));
+
+			float scale2 = rsqrt(dot(pixelSize2, pixelSize2));
+			scale2 *= abs(input.texcoord1.y) * _GradientScale * (_Sharpness + 1);
+			if(UNITY_MATRIX_P[3][3] == 0) scale2 = lerp(abs(scale2) * (1 - _PerspectiveFilter), scale2, abs(dot(UnityObjectToWorldNormal(input.normal.xyz), normalize(WorldSpaceViewDir(vert)))));
+
+			float weight2 = lerp(_WeightNormal, _WeightBold, bold) / 4.0;
+			weight2 = (weight2 + _Face2Dilate) * _ScaleRatioA * 0.5;
+
+
+			scale2 /= 1 + (_Outline2Softness * _ScaleRatioA * scale2);
+			float bias2 = (0.5 - weight2) * scale2 - 0.5;
+			float outline2 = _Outline2Width * _ScaleRatioA * 0.5 * scale2;
+
+			float opacity2 = input.color.a;
+			opacity2 = 1.0;
+
+			fixed4 faceColor2 = fixed4(input.color.rgb, opacity) * _Face2Color;
+			faceColor2.rgb *= faceColor.a;
+
+			fixed4 outlineColor2 = _OutlineColor;
+			outlineColor2.a *= opacity;
+			outlineColor2.rgb *= outlineColor2.a;
+			outlineColor2 = lerp(faceColor2, outlineColor2, sqrt(min(1.0, (outline2 * 2))));
+
+
+			float x2 = -(_UnderlayOffsetX * _ScaleRatioC) * _GradientScale / _TextureWidth;
+			float y2 = -(_UnderlayOffsetY * _ScaleRatioC) * _GradientScale / _TextureHeight;
+			float2 layerOffset2 = float2(x2, y2);
+
+			// Generate UV for the Masking Texture
+			float4 clampedRect2 = clamp(_ClipRect, -2e10, 2e10);
+			float2 maskUV2 = (vert.xy - clampedRect2.xy) / (clampedRect2.zw - clampedRect2.xy);
+
+			// Populate structure for pixel shader
+			output2.vertex = vPosition2;
+			output2.faceColor = faceColor2;
+			output2.outlineColor = outlineColor2;
+			output2.texcoord0 = float4(input.texcoord0.x, input.texcoord0.y, maskUV2.x, maskUV2.y);
+			output2.param = half4(scale, bias - outline2, bias + outline2, bias);
+			output2.mask = half4(vert.xy * 2 - clampedRect2.xy - clampedRect2.zw, 0.25 / (0.25 * half2(_MaskSoftnessX, _MaskSoftnessY) + pixelSize.xy));
+
+			output2.texcoord1 = float4(input.texcoord0 + layerOffset2, input.color.a, 0);
+
+			output.vertex *= output2.vertex;
+			output.faceColor *= output2.faceColor;
+			output.outlineColor *= output2.outlineColor;
 			return output;
 		}
-
-
 		// PIXEL SHADER
 		fixed4 PixShader(pixel_t input) : SV_Target
 		{
@@ -200,21 +263,15 @@ SubShader {
 			half d = tex2D(_MainTex, input.texcoord0.xy).a * input.param.x;
 			half4 c = input.faceColor * saturate(d - input.param.w);
 
-			#ifdef OUTLINE_ON
 			c = lerp(input.outlineColor, input.faceColor, saturate(d - input.param.z));
 			c *= saturate(d - input.param.y);
-			#endif
 
-			#if UNDERLAY_ON
 			d = tex2D(_MainTex, input.texcoord1.xy).a * input.underlayParam.x;
 			c += float4(_UnderlayColor.rgb * _UnderlayColor.a, _UnderlayColor.a) * saturate(d - input.underlayParam.y) * (1 - c.a);
-			#endif
 
-			#if UNDERLAY_INNER
 			half sd = saturate(d - input.param.z);
 			d = tex2D(_MainTex, input.texcoord1.xy).a * input.underlayParam.x;
 			c += float4(_UnderlayColor.rgb * _UnderlayColor.a, _UnderlayColor.a) * (1 - saturate(d - input.underlayParam.y)) * sd * (1 - c.a);
-			#endif
 
 			// Alternative implementation to UnityGet2DClipping with support for softness.
 			#if UNITY_UI_CLIP_RECT
@@ -222,9 +279,7 @@ SubShader {
 			c *= m.x * m.y;
 			#endif
 
-			#if (UNDERLAY_ON | UNDERLAY_INNER)
 			c *= input.texcoord1.z;
-			#endif
 
 			#if UNITY_UI_ALPHACLIP
 			clip(c.a - 0.001);
@@ -235,6 +290,4 @@ SubShader {
 		ENDCG
 	}
 }
-
-CustomEditor "TMPro.EditorUtilities.TMP_SDFShaderGUI"
 }
