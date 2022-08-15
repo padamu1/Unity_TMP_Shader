@@ -201,8 +201,10 @@ SubShader {
 			
 			c2 *= saturate(d2 - input.param.y);
 			c *= saturate(d - input.param.y);
-			c2 += c;
+			half4 c3 = c * c2;
+			c2 -= c3;
 			c += c2;
+			//c -= c3;
 			d = tex2D(_MainTex, input.texcoord1.xy).a * input.underlayParam.x;
 			c += float4(_UnderlayColor.rgb * _UnderlayColor.a, _UnderlayColor.a) * saturate(d - input.underlayParam.y) * (1 - c.a);
 
