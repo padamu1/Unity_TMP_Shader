@@ -10,17 +10,12 @@ Properties {
 	_FaceDilate			("Face Dilate", Range(-1,1)) = 0
 
 	[HDR]_Face2Color    ("Face2 Color", Color) = (1,1,1,1)
-	_Face2Dilate		("Face2 Dilate", Range(-1,1)) = 0
 	_Face2OffsetX 	("Face2 OffsetX", Range(-1,1)) = 0
 	_Face2OffsetY 	("Face2 OffsetY", Range(-1,1)) = 0
 
 	[HDR]_OutlineColor	("Outline Color", Color) = (0,0,0,1)
 	_OutlineWidth		("Outline Thickness", Range(0,1)) = 0
 	_OutlineSoftness	("Outline Softness", Range(0,1)) = 0
-
-	[HDR]_Outline2Color	("Outline2 Color", Color) = (0,0,0,1)
-	_Outline2Width		("Outline2 Thickness", Range(0,1)) = 0
-	_Outline2Softness	("Outline2 Softness", Range(0,1)) = 0
 
 	[HDR]_UnderlayColor	("Border Color", Color) = (0,0,0,.5)
 	_UnderlayOffsetX 	("Border OffsetX", Range(-1,1)) = 0
@@ -207,7 +202,6 @@ SubShader {
 			c2 *= saturate(d2 - input.param.y);
 			c *= saturate(d - input.param.y);
 			c2 += c;
-			c *= c2;
 			c += c2;
 			d = tex2D(_MainTex, input.texcoord1.xy).a * input.underlayParam.x;
 			c += float4(_UnderlayColor.rgb * _UnderlayColor.a, _UnderlayColor.a) * saturate(d - input.underlayParam.y) * (1 - c.a);
