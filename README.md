@@ -8,6 +8,6 @@ Unity TMPro Shader - 3D Text SampleCode
 - Text color 2 is determined by multiplying text color 1
 - The position of the underlay is affected by the face2offset.
 
-![image](https://user-images.githubusercontent.com/26586104/184562344-f5b5f5eb-0e4e-4d79-8baa-a5fee69392a2.png)
+<img width="520" alt="image" src="https://user-images.githubusercontent.com/26586104/184572808-fb7ff2f7-625e-4eeb-9c89-41f21b6844a0.png">
 
 ### Unity TMPro Shader with hlsl language
