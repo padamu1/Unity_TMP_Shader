@@ -11,3 +11,8 @@ Unity TMPro Shader - 3D Text SampleCode
 <img width="520" alt="image" src="https://user-images.githubusercontent.com/26586104/184572808-fb7ff2f7-625e-4eeb-9c89-41f21b6844a0.png">
 
 ### Unity TMPro Shader with hlsl language
+
+
+-Reference 
+</br>
+ : https://forum.unity.com/threads/tmpro-draw-external-outline-before-faces.503999/
